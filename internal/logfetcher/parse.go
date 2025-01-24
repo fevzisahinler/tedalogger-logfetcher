@@ -2,6 +2,7 @@ package logfetcher
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -93,9 +94,12 @@ func parseForti(msg LogMessage) ParsedLog {
 		RawMessage: msg.Message,
 		FromHost:   msg.FromHost,
 	}
+	var eventTime int64
+	var timeParsed bool
+
 	matches := fortiKV.FindAllStringSubmatch(msg.Message, -1)
 	for _, m := range matches {
-		key := m[1]
+		key := strings.ToLower(m[1])
 		val := m[2]
 		if val == "" {
 			val = m[3]
@@ -124,14 +128,27 @@ func parseForti(msg LogMessage) ParsedLog {
 			pl.User = val
 		case "action":
 			pl.Action = val
+		case "eventtime":
+			parsedEventTime, err := strconv.ParseInt(val, 10, 64)
+			if err == nil {
+				eventTime = parsedEventTime
+				timeParsed = true
+			}
 		case "time":
 		}
 	}
-	if pl.Timestamp.IsZero() && msg.TimeReported != "" {
+
+	if timeParsed {
+		seconds := eventTime / 1e9
+		nanoseconds := eventTime % 1e9
+		t := time.Unix(seconds, nanoseconds).UTC()
+		pl.Timestamp = t
+	} else if msg.TimeReported != "" {
 		t, err := time.Parse(time.RFC3339, msg.TimeReported)
 		if err == nil {
-			pl.Timestamp = t
+			pl.Timestamp = t.UTC()
 		}
 	}
+
 	return pl
 }
