@@ -1,3 +1,5 @@
+// internal/logfetcher/manager.go
+
 package logfetcher
 
 import (
@@ -29,12 +31,14 @@ func StartManager() {
 
 			desiredQueues := make(map[string]bool)
 			for _, nas := range nasList {
-				queueName := fmt.Sprintf("%s-%s-queue", strings.ToLower(nas.Brand), nas.Nasname)
+				queueName := fmt.Sprintf("%s-%s-queue",
+					strings.ToLower(nas.Brand),
+					nas.Nasname,
+				)
 				desiredQueues[queueName] = true
 			}
 
 			mu.Lock()
-
 			for q, handle := range consumers {
 				if !desiredQueues[q] {
 					log.Printf("Stopping consumer for removed queue: %s", q)
@@ -62,7 +66,6 @@ func StartManager() {
 					}(q)
 				}
 			}
-
 			mu.Unlock()
 
 			time.Sleep(10 * time.Second)
