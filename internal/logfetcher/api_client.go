@@ -1,3 +1,5 @@
+// internal/logfetcher/api_client.go
+
 package logfetcher
 
 import (
@@ -9,6 +11,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"tedalogger-logfetcher/config"
 )
 
 var (
@@ -16,28 +20,17 @@ var (
 	currentToken string
 )
 
-func getAPIBaseURL() string {
-	return getEnv("API_BASE_URL", "")
-}
-
-func getAPIUsername() string {
-	return getEnv("API_USERNAME", "")
-}
-
-func getAPIPassword() string {
-	return getEnv("API_PASSWORD", "")
-}
-
 func loginOnce() error {
-	baseURL := getAPIBaseURL()
+	cfg := config.GetConfig()
+	baseURL := cfg.APIBaseURL
 	if baseURL == "" {
 		return fmt.Errorf("API_BASE_URL not set")
 	}
 
 	endpoint := fmt.Sprintf("%s/auth/login", baseURL)
 	reqBody := map[string]string{
-		"username": getAPIUsername(),
-		"password": getAPIPassword(),
+		"username": cfg.APIUsername,
+		"password": cfg.APIPassword,
 	}
 
 	bodyBytes, _ := json.Marshal(reqBody)
@@ -98,7 +91,8 @@ func fetchNASList() ([]NAS, error) {
 		return nil, fmt.Errorf("cannot get token: %w", err)
 	}
 
-	baseURL := getAPIBaseURL()
+	cfg := config.GetConfig()
+	baseURL := cfg.APIBaseURL
 	if baseURL == "" {
 		return nil, fmt.Errorf("API_BASE_URL not set")
 	}

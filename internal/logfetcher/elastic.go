@@ -1,3 +1,5 @@
+// internal/logfetcher/elastic.go
+
 package logfetcher
 
 import (
@@ -8,44 +10,26 @@ import (
 	"strings"
 
 	"github.com/elastic/go-elasticsearch/v8"
+	"tedalogger-logfetcher/config"
 )
 
-// getElasticURL returns the ELASTIC_URL from environment
-func getElasticURL() string {
-	return getEnv("ELASTIC_URL", "http://localhost:9200")
-}
-
-// getElasticUser returns ELASTIC_USER
-func getElasticUser() string {
-	return getEnv("ELASTIC_USER", "")
-}
-
-// getElasticPass returns ELASTIC_PASS
-func getElasticPass() string {
-	return getEnv("ELASTIC_PASS", "")
-}
-
 func connectES() (*elasticsearch.Client, error) {
-	esURL := getElasticURL()
-	esUser := getElasticUser()
-	esPass := getElasticPass()
+	cfg := config.GetConfig()
 
-	cfg := elasticsearch.Config{
-		Addresses: []string{esURL},
+	esConfig := elasticsearch.Config{
+		Addresses: []string{cfg.ElasticURL},
 	}
 
-	// Only set username/password if not empty
-	if esUser != "" && esPass != "" {
-		cfg.Username = esUser
-		cfg.Password = esPass
+	if cfg.ElasticUser != "" && cfg.ElasticPass != "" {
+		esConfig.Username = cfg.ElasticUser
+		esConfig.Password = cfg.ElasticPass
 	}
 
-	es, err := elasticsearch.NewClient(cfg)
+	es, err := elasticsearch.NewClient(esConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	// quick test
 	res, err := es.Info()
 	if err != nil {
 		return nil, fmt.Errorf("elasticsearch info error: %w", err)
@@ -56,11 +40,10 @@ func connectES() (*elasticsearch.Client, error) {
 		return nil, fmt.Errorf("elasticsearch error response: %s", res.String())
 	}
 
-	log.Printf("Connected to Elasticsearch at %s (Auth? %v)", esURL, esUser != "")
+	log.Printf("Connected to Elasticsearch at %s (Auth? %v)", cfg.ElasticURL, cfg.ElasticUser != "")
 	return es, nil
 }
 
-// indexLogToES indexes `doc` into `indexName`.
 func indexLogToES(es *elasticsearch.Client, doc ParsedLog, indexName string) error {
 	data, err := json.Marshal(doc)
 	if err != nil {

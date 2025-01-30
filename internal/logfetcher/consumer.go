@@ -8,10 +8,16 @@ import (
 	"time"
 
 	"github.com/streadway/amqp"
+	"tedalogger-logfetcher/config"
 )
 
+// dateString fonksiyonu, gün/ay/yıl şeklinde bir string döndürür
+func dateString() string {
+	return time.Now().Format("02-01-2006")
+}
+
 func startConsumer(ctx context.Context, queueName, brand, nasIP string) error {
-	amqpURL := getRabbitMQURL()
+	amqpURL := config.GetConfig().RabbitMQURL
 	conn, err := amqp.Dial(amqpURL)
 	if err != nil {
 		return fmt.Errorf("RabbitMQ dial error: %w", err)
@@ -58,13 +64,10 @@ func startConsumer(ctx context.Context, queueName, brand, nasIP string) error {
 				}
 
 				rawMsg := string(d.Body)
-
 				lm := LogMessage{
 					Message: rawMsg,
 				}
-
 				doc := parseAndDetermineBrand(lm)
-
 				doc.NASName = nasIP
 
 				if doc.URL == "" {
@@ -76,7 +79,7 @@ func startConsumer(ctx context.Context, queueName, brand, nasIP string) error {
 
 				indexName := fmt.Sprintf("%s-%s",
 					strings.ReplaceAll(nasIP, ".", "_"),
-					dateString(),
+					dateString(), // Burada dateString() fonksiyonunu çağırıyoruz
 				)
 
 				if err := indexLogToES(esClient, doc, indexName); err != nil {
@@ -93,17 +96,4 @@ func startConsumer(ctx context.Context, queueName, brand, nasIP string) error {
 	ch.Close()
 	conn.Close()
 	return nil
-}
-
-func getRabbitMQURL() string {
-	url := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672")
-	return url
-}
-
-func dateString() string {
-	return now().Format("02-01-2006")
-}
-
-var now = func() (t time.Time) {
-	return time.Now()
 }
